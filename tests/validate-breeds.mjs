@@ -28,6 +28,32 @@ const GROOMING_LEVELS = new Set(["Low", "Moderate", "High"]);
 const COAT_LENGTHS = new Set(["Short", "Long", "Hairless"]);
 const RANGE_PATTERN = /\d/; // a range string must contain at least one number
 
+// Placeholder values are forbidden: every field must carry real, curated data.
+// A field whose trimmed value equals one of these tokens (case-insensitive),
+// or that is just a string of placeholder punctuation, is rejected.
+const PLACEHOLDER_TOKENS = new Set([
+  "tbd",
+  "tba",
+  "todo",
+  "n/a",
+  "na",
+  "none",
+  "null",
+  "unknown",
+  "placeholder",
+  "lorem ipsum",
+  "coming soon",
+  "test",
+  "xxx"
+]);
+const PLACEHOLDER_PUNCTUATION = /^[-–—?.]+$/; // e.g. "-", "—", "???", "..."
+
+function isPlaceholder(value) {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return PLACEHOLDER_TOKENS.has(normalized) || PLACEHOLDER_PUNCTUATION.test(normalized);
+}
+
 const errors = [];
 function check(condition, message) {
   if (!condition) errors.push(message);
@@ -58,6 +84,10 @@ if (Array.isArray(breeds)) {
       check(
         typeof value === "string" && value.trim().length > 0,
         `"${label}": field "${field}" is missing or empty`
+      );
+      check(
+        !isPlaceholder(value),
+        `"${label}": field "${field}" contains a placeholder value ("${value}")`
       );
     }
 

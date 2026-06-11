@@ -30,6 +30,10 @@ record contains:
 
 Weights and life expectancies are typical ranges and vary by individual cat.
 
+Every field is required and must hold real, curated data: no record may have a
+missing, empty, or placeholder field (e.g. `TBD`, `N/A`, `unknown`, `—`). This
+is enforced by the validator described below.
+
 ## Running locally
 
 The site is fully static — no build step. Serve the folder over HTTP so the
@@ -47,8 +51,8 @@ node tests/validate-breeds.mjs
 ```
 
 The validator checks that there are at least 25 breeds, that every required
-field is present and non-empty, that there are no duplicate breed names, and
-that the categorical fields use the expected values.
+field is present, non-empty, and not a placeholder value, that there are no
+duplicate breed names, and that the categorical fields use the expected values.
 
 ## Deployment
 
