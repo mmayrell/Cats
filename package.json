@@ -1,0 +1,12 @@
+{
+  "name": "wiskerpedia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A curated encyclopedia of real cat breeds, served as a static website.",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node tests/validate-breeds.mjs"
+  },
+  "license": "MIT"
+}
