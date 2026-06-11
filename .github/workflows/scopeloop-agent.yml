@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SL_BRANCH: ${{ github.event.client_payload.branch }}
+      SL_BASE: ${{ github.event.client_payload.baseBranch || 'main' }}
       SL_TITLE: ${{ github.event.client_payload.title }}
       SL_RUN_ID: ${{ github.event.client_payload.runId }}
       SL_MODE: ${{ github.event.client_payload.automationMode }}
@@ -41,9 +42,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SCOPELOOP_GH_TOKEN }}
         run: |
-          # If the agent didn't emit a result, infer one from whether it changed anything.
+          # If the agent didn't emit a result, infer one from whether it changed anything
+          # (working tree edits or commits it already made on the branch).
           if [ ! -f .scopeloop/result.json ]; then
-            if [ -n "$(git status --porcelain)" ]; then
+            if [ -n "$(git status --porcelain)" ] || [ "$(git rev-list --count "origin/$SL_BASE"..HEAD 2>/dev/null || echo 0)" -gt 0 ]; then
               printf '{"status":"completed","summary":"Implemented (the agent did not emit a result file)."}' > .scopeloop/result.json
             else
               printf '{"status":"blocked","summary":"The run produced no changes and no result.","blocker":"No .scopeloop/result.json and no file changes — the agent step may have errored. Check the Actions log."}' > .scopeloop/result.json
@@ -51,21 +53,35 @@ jobs:
           fi
           cp .scopeloop/result.json /tmp/sl-result.json
           STATUS=$(jq -r '.status // "completed"' /tmp/sl-result.json)
+          FAILED=""
+          downgrade() {
+            jq --arg b "$1" '.status = "blocked" | .blocker = $b' /tmp/sl-result.json > /tmp/sl-result.tmp && mv /tmp/sl-result.tmp /tmp/sl-result.json
+            FAILED=1
+          }
           # Never commit ScopeLoop metadata into the repo.
           rm -rf .scopeloop
+          # Commit anything the agent left uncommitted.
           git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "ScopeLoop: $SL_TITLE"
-            git push origin "$SL_BRANCH" || true
+          git diff --cached --quiet || git commit -m "ScopeLoop: $SL_TITLE"
+          # Push whenever the branch has commits the base doesn't — the agent usually commits
+          # its own work, so never gate the push on leftover uncommitted changes.
+          AHEAD=$(git rev-list --count "origin/$SL_BASE"..HEAD 2>/dev/null || echo 0)
+          if [ "$AHEAD" -gt 0 ]; then
+            git push origin "$SL_BRANCH" || downgrade "Could not push branch $SL_BRANCH — the work is stranded in the runner. Check the Actions log."
+          elif [ "$STATUS" = "completed" ]; then
+            downgrade "The agent reported completed but produced no commits on the branch."
           fi
-          # Report the structured result back to ScopeLoop (best-effort).
+          # Open the PR before reporting, so a PR failure reaches ScopeLoop too.
+          if [ "$STATUS" = "completed" ] && [ -z "$FAILED" ]; then
+            gh pr view "$SL_BRANCH" >/dev/null 2>&1 || \
+              gh pr create --title "ScopeLoop: $SL_TITLE" --body "Automated delivery run $SL_RUN_ID from ScopeLoop." --base "$SL_BASE" --head "$SL_BRANCH" || \
+              downgrade "The branch was pushed but the pull request could not be created. Check the Actions log."
+          fi
+          # Report the structured result back to ScopeLoop.
           if [ -n "$SL_API" ] && [ -n "$SL_RUN_TOKEN" ]; then
             curl -s -X POST "$SL_API/api/pipeline/runs/$SL_RUN_ID/result" \
               -H "X-ScopeLoop-Token: $SL_RUN_TOKEN" -H "Content-Type: application/json" \
               --data @/tmp/sl-result.json || true
           fi
-          # Open a PR only once the agent says it's done.
-          if [ "$STATUS" = "completed" ]; then
-            gh pr view "$SL_BRANCH" >/dev/null 2>&1 || \
-              gh pr create --title "ScopeLoop: $SL_TITLE" --body "Automated delivery run $SL_RUN_ID from ScopeLoop." --head "$SL_BRANCH" || true
-          fi
+          # A swallowed failure must still fail the job loudly.
+          [ -z "$FAILED" ] || exit 1
