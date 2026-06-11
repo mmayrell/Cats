@@ -67,7 +67,18 @@ jobs:
           # its own work, so never gate the push on leftover uncommitted changes.
           AHEAD=$(git rev-list --count "origin/$SL_BASE"..HEAD 2>/dev/null || echo 0)
           if [ "$AHEAD" -gt 0 ]; then
-            git push origin "$SL_BRANCH" || downgrade "Could not push branch $SL_BRANCH — the work is stranded in the runner. Check the Actions log."
+            # Push as the ScopeLoop App, not the runner's default credentials: GITHUB_TOKEN can
+            # NEVER push changes under .github/workflows, and agents legitimately touch CI files
+            # (those changes get rated High deploy risk, so a human still gates the merge).
+            PUSH_TO="origin"
+            [ -n "$GH_TOKEN" ] && PUSH_TO="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            if ! git push "$PUSH_TO" "HEAD:refs/heads/$SL_BRANCH"; then
+              if git diff --name-only "origin/$SL_BASE"..HEAD 2>/dev/null | grep -q '^\.github/workflows/'; then
+                downgrade "Could not push branch $SL_BRANCH: the change edits .github/workflows files and the ScopeLoop GitHub App is not allowed to push workflow changes to this repository. Approve the App's updated permissions on the installation, or apply the workflow edit manually."
+              else
+                downgrade "Could not push branch $SL_BRANCH — the work is stranded in the runner. Check the Actions log."
+              fi
+            fi
           elif [ "$STATUS" = "completed" ]; then
             downgrade "The agent reported completed but produced no commits on the branch."
           fi
