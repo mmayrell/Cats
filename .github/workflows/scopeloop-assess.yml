@@ -1,0 +1,41 @@
+name: ScopeLoop Baseline Assessment
+on:
+  repository_dispatch:
+    types: [scopeloop-assess]
+permissions:
+  contents: read
+jobs:
+  assess:
+    runs-on: ubuntu-latest
+    env:
+      SL_RUN_ID: ${{ github.event.client_payload.runId }}
+      SL_API: ${{ github.event.client_payload.apiBaseUrl }}
+      SL_WORK_ORDER_B64: ${{ github.event.client_payload.workOrder }}
+      SL_RUN_TOKEN: ${{ secrets.SCOPELOOP_RUN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Prepare work order
+        run: |
+          mkdir -p .scopeloop
+          printf '%s' "$SL_WORK_ORDER_B64" | base64 -d > .scopeloop/work-order.md
+      - name: Run Claude Code (read-only assessment)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude -p "Read .scopeloop/work-order.md and follow it exactly. This is a READ-ONLY assessment: do not modify, create, or delete any repository files except .scopeloop/assessment.json. Inspect the code and write .scopeloop/assessment.json as specified." --permission-mode bypassPermissions || true
+      - name: Report assessment
+        run: |
+          if [ ! -f .scopeloop/assessment.json ]; then
+            printf '{"summary":"The assessment agent produced no output. Check the Actions log.","assessments":[]}' > .scopeloop/assessment.json
+          fi
+          if [ -n "$SL_API" ] && [ -n "$SL_RUN_TOKEN" ]; then
+            curl -s -X POST "$SL_API/api/pipeline/runs/$SL_RUN_ID/assessment-result" \
+              -H "X-ScopeLoop-Token: $SL_RUN_TOKEN" -H "Content-Type: application/json" \
+              --data @.scopeloop/assessment.json || true
+          fi
