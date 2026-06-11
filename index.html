@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wiskerpedia — A Curated Cat Breed Encyclopedia</title>
+  <meta name="description" content="Wiskerpedia is a curated encyclopedia of real cat breeds, with origins, temperament, weight, life expectancy, energy, grooming needs, and fun facts." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <h1>🐾 Wiskerpedia</h1>
+      <p class="tagline">A curated encyclopedia of real cat breeds.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls" aria-label="Search and filter breeds">
+      <input
+        type="search"
+        id="search"
+        placeholder="Search by breed, origin, or temperament…"
+        aria-label="Search breeds"
+      />
+      <select id="coat-filter" aria-label="Filter by coat length">
+        <option value="">All coat lengths</option>
+      </select>
+      <select id="energy-filter" aria-label="Filter by energy level">
+        <option value="">All energy levels</option>
+      </select>
+      <p id="count" class="count" role="status"></p>
+    </section>
+
+    <section id="breeds" class="breed-grid" aria-live="polite"></section>
+    <p id="empty" class="empty" hidden>No breeds match your search.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Wiskerpedia — data curated for educational use. Weights and life expectancies are typical ranges and vary by individual cat.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
