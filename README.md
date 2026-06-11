@@ -12,6 +12,7 @@ Static Web Apps.
 | `app.js` | Loads the dataset and renders/filters breed cards. |
 | `data/breeds.json` | The curated cat breed dataset. |
 | `tests/validate-breeds.mjs` | Validates the dataset's shape and contents. |
+| `tools/build.mjs` | Assembles the served assets into a static `dist/` bundle. |
 
 ## The dataset
 
@@ -32,13 +33,28 @@ Weights and life expectancies are typical ranges and vary by individual cat.
 
 ## Running locally
 
-The site is fully static — no build step. Serve the folder over HTTP so the
-browser can `fetch` the dataset:
+The site is fully static. Serve the folder over HTTP so the browser can `fetch`
+the dataset:
 
 ```bash
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
+
+## Building
+
+`npm run build` validates the dataset and assembles a fully static, self-contained
+bundle in `dist/` that any static host (Azure Static Web Apps, GitHub Pages, S3,
+Netlify, …) can serve as-is:
+
+```bash
+npm run build
+# then serve dist/, e.g.
+python3 -m http.server 8000 --directory dist
+```
+
+The build has no third-party dependencies — it copies `index.html`, `styles.css`,
+`app.js`, and `data/` into `dist/`. `dist/` is generated and git-ignored.
 
 ## Validating the dataset
 
@@ -53,4 +69,5 @@ that the categorical fields use the expected values.
 ## Deployment
 
 Pushed to `main`, the site is deployed by the Azure Static Web Apps workflow in
-`.github/workflows/`, which uploads the repository root with no build command.
+`.github/workflows/scopeloop-deploy.yml`, which builds the bundle and uploads
+`dist/` (`output_location: "dist"`).
