@@ -11,7 +11,9 @@ Static Web Apps.
 | `styles.css` | Styling for the breed grid and cards. |
 | `app.js` | Loads the dataset and renders/filters breed cards. |
 | `data/breeds.json` | The curated cat breed dataset. |
+| `staticwebapp.config.json` | Azure SWA config; serves `index.html` as the fallback for unknown paths. |
 | `tests/validate-breeds.mjs` | Validates the dataset's shape and contents. |
+| `tests/validate-config.mjs` | Validates the Static Web Apps fallback configuration. |
 
 ## The dataset
 
@@ -44,11 +46,21 @@ python3 -m http.server 8000
 
 ```bash
 node tests/validate-breeds.mjs
+node tests/validate-config.mjs
 ```
 
-The validator checks that there are at least 25 breeds, that every required
-field is present and non-empty, that there are no duplicate breed names, and
-that the categorical fields use the expected values.
+`validate-breeds.mjs` checks that there are at least 25 breeds, that every
+required field is present and non-empty, that there are no duplicate breed
+names, and that the categorical fields use the expected values.
+`validate-config.mjs` checks the Static Web Apps fallback configuration.
+
+## Client-side routing
+
+`staticwebapp.config.json` sets a [`navigationFallback`](https://learn.microsoft.com/azure/static-web-apps/configuration#fallback-routes)
+rule that rewrites unknown paths to `/index.html` so deep links and
+client-side routes resolve to the app shell instead of returning a 404. Static
+assets (`/data/*`, CSS, JS, JSON, images) are excluded so a missing file still
+returns a real 404 rather than the HTML shell.
 
 ## Deployment
 
